@@ -15,53 +15,43 @@ static aJsonObject* environment(aJsonObject* root, const char* name)
     aJsonObject* pin = NULL;
     aJsonObject* temp = NULL;
     aJsonObject* resp = NULL;
-    char* msg = "OK";
-    int errno = 0;
+    char* msg = JUDP_ERR_LACK_PARAMETER_STR;
+    int errno = JUDP_ERR_LACK_PARAMETER;
     int p;
     int chk;
 
     para = aJson.getObjectItem(root, "para");
-    if (NULL == para) {
-        errno = JUDP_ERR_NOPARA;
-        msg = JUDP_ERR_NOPARA_STR;
-        goto err_out;
-    }
+    if (NULL == para)   goto err_out;
 
     pin = aJson.getObjectItem(para, "pin");
-    if (NULL == pin) {
-        errno = JUDP_ERR_PARA;
-        msg = JUDP_ERR_PARA_STR;
-        goto err_out;
-    }
+    if (NULL == pin)    goto err_out;
 
     p = pin->valueint;
     chk = DHT11.read(p);
-    //Serial.print("Read sensor: ");
     switch (chk)
     {
     case DHTLIB_OK:
-        //Serial.println("OK");
+        errno = 0;
+        msg = "OK";
         break;
     case DHTLIB_ERROR_CHECKSUM:
-        //Serial.println("Checksum error");
         msg = "Checksum error";
         errno = 255;
         goto err_out;
         break;
     case DHTLIB_ERROR_TIMEOUT:
-        //Serial.println("Time out error");
         msg = "Time out error";
         errno = 255;
         goto err_out;
         break;
     default:
-        //Serial.println("Unknown error");
         msg = "Unknown error";
         errno = 255;
         goto err_out;
         break;
     }
 
+    aJson.deleteItem(root);
     temp = createReplyJson(errno, msg);
     if (NULL == temp) {
         errno = JUDP_ERR_CREATEJSON;
@@ -82,6 +72,7 @@ static aJsonObject* environment(aJsonObject* root, const char* name)
     aJson.addNumberToObject(resp, "t", double(DHT11.temperature));
     return temp;
 err_out:
+    aJson.deleteItem(root);
     return createReplyJson(errno, msg);
 }
 

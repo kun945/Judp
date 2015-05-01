@@ -15,16 +15,16 @@
 #define JUDP_ERR_JSONPARSE              1
 #define JUDP_ERR_NONAME                 2
 #define JUDP_ERR_NOWORKER               3
-#define JUDP_ERR_NOPARA                 4
-#define JUDP_ERR_PARA                   5
+#define JUDP_ERR_LACK_PARAMETER         4
+#define JUDP_ERR_PARAMETER              5
 #define JUDP_ERR_CREATEJSON             6
 
 #define JUDP_ERR_OK_STR                     "OK"
 #define JUDP_ERR_JSONPARSE_STR              "parse error"
 #define JUDP_ERR_NONAME_STR                 "no command"
 #define JUDP_ERR_NOWORKER_STR               "unknown command"
-#define JUDP_ERR_NOPARA_STR                 "not found parameter"
-#define JUDP_ERR_PARA_STR                   "parameter error"
+#define JUDP_ERR_LACK_PARAMETER_STR         "lack of parameter"
+#define JUDP_ERR_PARAMETER_STR              "parameter error"
 #define JUDP_ERR_CREATEJSON_STR             "create reply fail"
 
 

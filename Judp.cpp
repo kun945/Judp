@@ -24,7 +24,7 @@ char* createReplyStr(int errno, const char* msg)
 
     string = aJson.print(temp);
     aJson.deleteItem(temp);
-#ifdef DEBUG
+#if 0
     Serial.print("reply str: ");
     Serial.println(string);
 #endif /*DEBUG*/
@@ -37,35 +37,23 @@ static aJsonObject* common(aJsonObject* root, const char* name)
     aJsonObject* pin = NULL;
     aJsonObject* temp = NULL;
     aJsonObject* value = NULL;
-    char* msg = JUDP_ERR_OK_STR;
+    char* msg = JUDP_ERR_LACK_PARAMETER_STR;
     char* vstr = NULL;
-    int errno = JUDP_ERR_OK;
+    int errno = JUDP_ERR_LACK_PARAMETER;
     int p;
     int v;
     bool rv = false;
 
     para = aJson.getObjectItem(root, "para");
-    if (NULL == para) {
-        errno = JUDP_ERR_NOPARA;
-        msg = JUDP_ERR_NOPARA_STR;
-        goto err_out;
-    }
+    if (NULL == para) goto err_out;
 
     pin = aJson.getObjectItem(para, "pin");
-    if (NULL == pin) {
-        errno = JUDP_ERR_PARA;
-        msg = JUDP_ERR_PARA_STR;
-        goto err_out;
-    }
+    if (NULL == pin) goto err_out;
 
     p = pin->valueint;
     if (strcmp(name, JUDP_JOB_DIGITALWRITE) == 0) {
         value = aJson.getObjectItem(para, "value");
-        if (NULL == value) {
-            errno = JUDP_ERR_PARA;
-            msg = JUDP_ERR_PARA_STR;
-            goto err_out;
-        }
+        if (NULL == value) goto err_out;
         v = value->valueint;
         digitalWrite(p, v);
         rv = false;
@@ -77,36 +65,32 @@ static aJsonObject* common(aJsonObject* root, const char* name)
         rv = true;
     } else if (strcmp(name, JUDP_JOB_ANALOGWRITE) == 0) {
         value = aJson.getObjectItem(para, "value");
-        if (NULL == value) {
-            errno = JUDP_ERR_PARA;
-            msg = JUDP_ERR_PARA_STR;
-            goto err_out;
-        }
+        if (NULL == value) goto err_out;
         v = value->valueint;
         analogWrite(p, v);
         rv = false;
     } else if (strcmp(name, JUDP_JOB_PINMODE) == 0) {
         value = aJson.getObjectItem(para, "value");
-        if (NULL == pin) {
-            errno = JUDP_ERR_PARA;
-            msg = JUDP_ERR_PARA_STR;
-            goto err_out;
-        }
+        if (NULL == pin) goto err_out;
         vstr = value->valuestring;
         if (strcmp(vstr, "OUTPUT") == 0) {
             pinMode(p, OUTPUT);
         } else if (strcmp(vstr, "INPUT") == 0) {
             pinMode(p, INPUT);
         } else {
-            errno = JUDP_ERR_PARA;
-            msg = JUDP_ERR_PARA_STR;
+            errno = JUDP_ERR_PARAMETER;
+            msg = JUDP_ERR_PARAMETER_STR;
             goto err_out;
         }
     } else {
-        errno = JUDP_ERR_PARA;
-        msg = JUDP_ERR_PARA_STR;
+        errno = JUDP_ERR_PARAMETER;
+        msg = JUDP_ERR_PARAMETER_STR;
         goto err_out;
     }
+
+    errno = JUDP_ERR_OK;
+    msg = JUDP_ERR_OK_STR;
+    aJson.deleteItem(root);
 
     temp = createReplyJson(errno, msg);
     if (NULL == temp) {
@@ -128,6 +112,7 @@ static aJsonObject* common(aJsonObject* root, const char* name)
     }
     return temp;
 err_out:
+    aJson.deleteItem(root);
     return createReplyJson(errno, msg);
 }
 
@@ -167,7 +152,7 @@ char* Worker::doJob(aJsonObject* root, const char* name)
 
     char* string = aJson.print(temp);
     aJson.deleteItem(temp);
-#ifdef DEBUG
+#if 0
     Serial.print("reply str: ");
     Serial.println(string);
 #endif /*DEBUG*/
@@ -191,7 +176,7 @@ void Judp::processing()
 {
     int packetSize = _udp.parsePacket();
     if (packetSize) {
-#ifdef DEBUG
+#if 0
         Serial.print("size: ");
         Serial.println(packetSize);
         Serial.print("From: ");
@@ -207,29 +192,26 @@ void Judp::processing()
         Serial.println(_udp.remotePort());
 #endif /*DEBUG*/
 
-        char* msg = NULL;
+        char* msg = JUDP_ERR_JSONPARSE_STR;
         char* reply = NULL;
         char buffer[JUDP_BUFFER_LEN];
-        int errno = 0;
+        int errno = JUDP_ERR_JSONPARSE;
         int len = _udp.read(buffer, JUDP_BUFFER_LEN - 1);
         buffer[len] = '\0';
-        Serial.print("conent: ");
-        Serial.println(buffer);
         JList* current = NULL;
         aJsonObject* name = NULL;
         aJsonObject* root = aJson.parse(buffer);
-        if (NULL == root) {
-            errno = JUDP_ERR_JSONPARSE;
-            msg = JUDP_ERR_JSONPARSE_STR;
-            goto reply_client;
-        }
+        if (NULL == root) goto reply_client;
 
         name = aJson.getObjectItem(root, "name");
         if (NULL == name) {
             errno = JUDP_ERR_NONAME;
             msg = JUDP_ERR_NONAME_STR;
-            goto delete_json;
+            aJson.deleteItem(root);
+            //goto delete_json;
+            goto reply_client;
         }
+
         current = &_jlist;
         while (NULL != current) {
             if (current->worker->isMyJob(name->valuestring)) {
@@ -240,19 +222,23 @@ void Judp::processing()
         if (NULL == current) {
             errno = JUDP_ERR_NOWORKER;
             msg = JUDP_ERR_NOWORKER_STR;
-            goto delete_json;
+            aJson.deleteItem(root);
+            //goto delete_json;
+            goto reply_client;
         }
 
         reply = current->worker->doJob(root, name->valuestring);
 
-delete_json:
-        aJson.deleteItem(root);
+//delete_json:
+        //aJson.deleteItem(root);
 
 reply_client:
         _udp.beginPacket(_udp.remoteIP(), _udp.remotePort());
         if (NULL == reply) {
+            Serial.print("??????????????");
             reply = createReplyStr(errno, msg);
         }
+
         if (NULL != reply) {
             _udp.write(reply);
             free(reply);
@@ -261,6 +247,7 @@ reply_client:
         }
         _udp.endPacket();
     }
+
     return;
 }
 
